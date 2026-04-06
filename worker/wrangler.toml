@@ -1,0 +1,16 @@
+name = "vapi-agent"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+LIGHTSPEED_ACCOUNT_ID = "222537"
+SUPABASE_URL = "https://rffvoreqcpkqqxwprosg.supabase.co"
+
+# Secrets (set via `wrangler secret put`):
+# LIGHTSPEED_CLIENT_ID
+# LIGHTSPEED_CLIENT_SECRET
+# LIGHTSPEED_REFRESH_TOKEN
+# SUPABASE_ANON_KEY
+
+[triggers]
+routes = []
