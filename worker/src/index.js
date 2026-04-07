@@ -28,23 +28,28 @@ export default {
         return Response.json({ error: "No message" }, { status: 400 });
       }
 
-      // Handle function calls from Vapi
+      // Handle function calls from Vapi (both old "function-call" and new "tool-calls" format)
       if (message.type === "function-call") {
         const fn = message.functionCall;
         const params = fn.parameters || {};
+        return await routeFunctionCall(fn.name, params, message, env);
+      }
 
-        switch (fn.name) {
-          case "check_inventory":
-            return await handleCheckInventory(params, env);
-          case "log_caller":
-            return await handleLogCaller(params, message.call, env);
-          case "add_to_waitlist":
-            return await handleAddToWaitlist(params, env);
-          default:
-            return Response.json({
-              results: [{ result: "I don't have that function available. Let me connect you with our team." }],
-            });
+      if (message.type === "tool-calls") {
+        const toolCalls = message.toolCallList || message.toolCalls || [];
+        const results = [];
+        for (const tc of toolCalls) {
+          const fn = tc.function || tc;
+          const name = fn.name || "";
+          const params = typeof fn.arguments === "string" ? JSON.parse(fn.arguments) : (fn.arguments || fn.parameters || {});
+          const res = await routeFunctionCall(name, params, message, env);
+          const resBody = await res.clone().json();
+          results.push({
+            toolCallId: tc.id || tc.toolCallId || "",
+            result: resBody.results ? resBody.results[0].result : JSON.stringify(resBody),
+          });
         }
+        return Response.json({ results });
       }
 
       // Handle end-of-call report
@@ -100,6 +105,23 @@ async function getAccessToken(env) {
   return cachedToken;
 }
 
+// --- Route function calls ---
+
+async function routeFunctionCall(name, params, message, env) {
+  switch (name) {
+    case "check_inventory":
+      return await handleCheckInventory(params, env);
+    case "log_caller":
+      return await handleLogCaller(params, message.call || {}, env);
+    case "add_to_waitlist":
+      return await handleAddToWaitlist(params, env);
+    default:
+      return Response.json({
+        results: [{ result: "I don't have that function available. Let me connect you with our team." }],
+      });
+  }
+}
+
 // --- check_inventory (Supabase — fast, 16,797 items) ---
 
 async function handleCheckInventory(params, env) {
@@ -110,32 +132,52 @@ async function handleCheckInventory(params, env) {
     });
   }
 
-  // Build ILIKE search from keywords
-  const searchTerm = product.replace(/[^a-zA-Z0-9\s']/g, "").trim();
+  // Build search — prioritize in-stock items with price, filter junk
+  const searchTerm = product.replace(/[^a-zA-Z0-9\s]/g, "").trim();
   const keywords = searchTerm.split(/\s+/).filter((w) => w.length > 1);
 
-  // Search Supabase inventory with ILIKE for each keyword
-  // Use PostgREST AND filter: description ILIKE %word1% AND description ILIKE %word2%
-  let url = `${env.SUPABASE_URL}/rest/v1/inventory?select=description,price,qoh,in_stock,category&order=qoh.desc.nullslast&limit=5`;
-  for (const kw of keywords) {
-    url += `&description=ilike.*${encodeURIComponent(kw)}*`;
-  }
+  // PostgREST doesn't support fuzzy/apostrophe-aware search via ILIKE.
+  // Use Supabase RPC to call a postgres function for better matching.
+  // For now, use multiple ILIKE patterns — try with and without common endings (s, 's)
+  // and use price > 0 to filter junk items.
+  let url = `${env.SUPABASE_URL}/rest/v1/rpc/search_inventory`;
+  const searchQuery = keywords.join(" ");
 
   const res = await fetch(url, {
+    method: "POST",
     headers: {
       apikey: env.SUPABASE_ANON_KEY,
       Authorization: `Bearer ${env.SUPABASE_ANON_KEY}`,
+      "Content-Type": "application/json",
     },
+    body: JSON.stringify({ search_query: searchQuery }),
   });
 
-  if (!res.ok) {
-    console.error("Supabase inventory search failed:", await res.text());
-    return Response.json({
-      results: [{ result: "I'm having trouble checking inventory right now. You can check our website at legacywineandliquor.com, or I can have someone call you back." }],
-    });
+  // If RPC doesn't exist, fall back to ILIKE
+  let items;
+  if (res.ok) {
+    items = await res.json();
   }
 
-  const items = await res.json();
+  if (!items || items.length === 0) {
+    // Fallback: ILIKE with price filter, try each keyword separately
+    let fallbackUrl = `${env.SUPABASE_URL}/rest/v1/inventory?select=description,price,qoh,in_stock,category&price=gt.0&order=in_stock.desc,qoh.desc.nullslast&limit=5`;
+    for (const kw of keywords) {
+      // Strip trailing 's' to handle "Titos" matching "TITO'S"
+      const root = kw.replace(/s$/i, "");
+      fallbackUrl += `&description=ilike.*${encodeURIComponent(root)}*`;
+    }
+
+    const fallbackRes = await fetch(fallbackUrl, {
+      headers: {
+        apikey: env.SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${env.SUPABASE_ANON_KEY}`,
+      },
+    });
+    if (fallbackRes.ok) {
+      items = await fallbackRes.json();
+    }
+  }
 
   if (!items || items.length === 0) {
     return Response.json({

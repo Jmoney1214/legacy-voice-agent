@@ -1,0 +1,247 @@
+{
+  "assistant": {
+    "id": "804091b2-a558-49cf-b1f8-d534cc52f26a",
+    "orgId": "18c11717-f8ed-4718-a927-cc0be031d0ab",
+    "name": "Riley",
+    "voice": {
+      "model": "eleven_turbo_v2_5",
+      "speed": 0.95,
+      "voiceId": "pFZP5JQG7iQjIQuC4Bku",
+      "provider": "11labs",
+      "stability": 0.5,
+      "similarityBoost": 0.75
+    },
+    "createdAt": "2026-04-05T18:56:47.025Z",
+    "updatedAt": "2026-04-07T01:15:40.653Z",
+    "model": {
+      "model": "gpt-4o-mini",
+      "toolIds": [
+        "f0986cdd-8f27-4f7e-bd5c-cc53bf29f651",
+        "f4a7bede-5161-48d3-88fb-878a87543d4e",
+        "66416617-815d-4186-afa0-9e5d9cb58413",
+        "b71f4298-d9ba-45ab-891b-de9316f4a0a9"
+      ],
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are Legacy, the voice concierge for Legacy Wine & Liquor in Sanford, Florida. You sound like a knowledgeable bartender who genuinely loves what they sell. Warm, confident, never robotic. Short sentences. Natural pauses. You mirror the caller's energy.\n\nIf asked, say \"I'm Legacy, the concierge for Legacy Wine & Liquor.\" Never volunteer that you're AI.\n\nIMPORTANT: You ONLY answer questions about Legacy Wine & Liquor \u2014 products, inventory, pricing, hours, location, delivery, shipping, recommendations, and store services. If someone asks a question unrelated to the store (trivia, math, science, personal advice, weather, sports, etc.), politely redirect: \"Ha, that's a fun one, but I'm really only set up to help with wine and spirits. Anything I can look up for you?\"\n\nSTORE: Legacy Wine & Liquor, 200 South French Avenue, Sanford, Florida 32771. Open daily 10 AM to 2 AM. Phone 407-878-7003. Website legacywineandliquor.com. Owner Jay.\n\nDELIVERY: Local delivery through DoorDash and Uber Eats in the Sanford area. We ship to 47 states nationwide through our website. Free shipping on orders over $150.\n\nWHEN ASKED ABOUT PRODUCTS: You MUST use the check_inventory tool to look up real-time availability and pricing. Do NOT say you can't check inventory. Do NOT say you don't have real-time data. Just call the check_inventory tool with the product name. The tool returns instant results.\n\nIf the tool is temporarily unavailable, use this fallback knowledge:\n\nBOURBON AND AMERICAN WHISKEY in stock:\n- Orphan Barrel Fanged Pursuit $499.99\n- Angel's Envy Cask Strength 2024 $249.99 (5 bottles)\n- Woodford Reserve Madeira Cask Finish $179.99 (10 bottles)\n- E.H. Taylor Single Barrel $169.99 (4 bottles, allocated)\n- Calumet Farms 16 Year $159.99\n- Blanton's Single Barrel $99.99 (2 bottles, goes fast)\n- Angel's Envy Private Selection $95.99 (47 bottles)\n- Old Forester 1920 $58.99\n- Old Forester 1910 $57.99 (6 bottles)\n- Four Roses Small Batch Select $56.99\n- Bulleit 10 Year $54.99\n- Woodford Reserve Derby Edition $47.99 (42 bottles)\n- Angel's Envy Port Finish $49.99\n- Michter's Small Batch $49.99\n- Penelope Four Grain $30.99\n- Buffalo Trace Bourbon Cream $19.99\n\nTEQUILA in stock:\n- Grand Patron $499.99\n- Don Julio 1942 $199.99 (4 bottles)\n- Lobos 1707 Extra Anejo $159.99 (6 bottles)\n- Dios Azul Extra Anejo $139.99 (17 bottles)\n- Cincoro Anejo $120.99\n- Dios Azul Anejo $95.99 (7 bottles)\n- Patron Anejo Sherry Cask $79.99\n- Patron Anejo $60.00\n\nSCOTCH: Extensive collection of single malts and blends. For specific scotch, recommend the website or visiting.\nWINE: Full selection of reds, whites, sparkling. For specific wines, recommend the website or visiting.\nVODKA: Tito's, Grey Goose, Belvedere, Ciroc and more.\nCOGNAC: Hennessy VS, VSOP, XO, Remy Martin, Courvoisier.\n\nRECOMMENDATIONS: Ask ONE question then recommend confidently. Sound like you've tasted everything.\n\nCALLER PSYCHOLOGY: Rushed=direct. Confused=slow down. Skeptical=specifics. Price-sensitive=value first. Premium=exclusive tone. Angry=acknowledge then action. Ready to buy=close fast. Browsing=consultative.\n\nTRANSFER: Use transfer_to_jay tool for owner requests, large orders over $500, complaints, allocated bottles, wholesale.\nWAITLIST: Use add_to_waitlist tool for out-of-stock items. Get name and phone.\nLOGGING: Use log_caller tool when caller gives name/phone/callback request.\n\nRULES:\n- Keep responses under 25 words when possible\n- ALWAYS use check_inventory for product questions. Never say you can't check.\n- NEVER answer off-topic questions. Redirect to wine and spirits.\n- Never make up prices. Never say \"I don't know.\"\n- End every call: \"Thanks for calling Legacy. We appreciate you.\"\n- Party: \"10 percent off 6 or more bottles\"\n- Shipping: \"We ship to 47 states\"\n- Pappy: \"Allocated and waitlist only. Can I get your name and number?\""
+        }
+      ],
+      "provider": "openai"
+    },
+    "forwardingPhoneNumber": "+14078787003",
+    "firstMessage": "Thanks for calling Legacy Wine and Liquor. How can I help you today?",
+    "voicemailMessage": "Hey, you've reached Legacy Wine and Liquor. We're open daily 10 AM to 2 AM. Leave a message or shop online at legacywineandliquor.com. We ship to 47 states.",
+    "endCallFunctionEnabled": true,
+    "endCallMessage": "Thanks for calling Legacy. We appreciate you.",
+    "transcriber": {
+      "model": "nova-3",
+      "provider": "deepgram"
+    },
+    "silenceTimeoutSeconds": 30,
+    "clientMessages": [
+      "conversation-update",
+      "function-call",
+      "hang",
+      "model-output",
+      "speech-update",
+      "status-update",
+      "transfer-update",
+      "transcript",
+      "tool-calls",
+      "user-interrupted",
+      "voice-input",
+      "workflow.node.started",
+      "assistant.started"
+    ],
+    "serverMessages": [
+      "conversation-update",
+      "end-of-call-report",
+      "function-call",
+      "hang",
+      "speech-update",
+      "status-update",
+      "tool-calls",
+      "transfer-destination-request",
+      "handoff-destination-request",
+      "user-interrupted",
+      "assistant.started"
+    ],
+    "dialKeypadFunctionEnabled": true,
+    "serverUrl": "https://vapi-agent.legacywineandliquor.workers.dev",
+    "endCallPhrases": [
+      "goodbye",
+      "that's all",
+      "have a good one",
+      "thanks bye",
+      "talk to you soon"
+    ],
+    "hipaaEnabled": false,
+    "maxDurationSeconds": 600,
+    "backgroundSound": "off",
+    "firstMessageMode": "assistant-speaks-first",
+    "backgroundDenoisingEnabled": false,
+    "startSpeakingPlan": {
+      "waitSeconds": 0.4,
+      "smartEndpointingEnabled": "livekit"
+    },
+    "server": {
+      "url": "https://vapi-agent.legacywineandliquor.workers.dev",
+      "timeoutSeconds": 20
+    },
+    "isServerUrlSecretSet": false
+  },
+  "phone_number": {
+    "id": "c062ff21-217e-46e0-be20-a9a257433b45",
+    "orgId": "18c11717-f8ed-4718-a927-cc0be031d0ab",
+    "assistantId": "804091b2-a558-49cf-b1f8-d534cc52f26a",
+    "number": "+14072507267",
+    "createdAt": "2026-04-05T19:05:17.553Z",
+    "updatedAt": "2026-04-06T23:36:23.260Z",
+    "name": "Legacy Ai Agent",
+    "serverUrl": "https://vapi-agent.legacywineandliquor.workers.dev",
+    "provider": "twilio",
+    "fallbackDestination": {
+      "type": "number",
+      "number": "+14078787003"
+    },
+    "server": {
+      "url": "https://vapi-agent.legacywineandliquor.workers.dev",
+      "timeoutSeconds": 20
+    },
+    "status": "active"
+  },
+  "tools": [
+    {
+      "id": "f0986cdd-8f27-4f7e-bd5c-cc53bf29f651",
+      "createdAt": "2026-04-06T20:21:29.705Z",
+      "updatedAt": "2026-04-06T23:49:53.255Z",
+      "type": "function",
+      "function": {
+        "name": "check_inventory",
+        "description": "Check if a specific wine, spirit, or product is available in store inventory and get its current price",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "product_name": {
+              "description": "The name of the product to search for, e.g. Blantons bourbon, Moet Champagne, Titos vodka",
+              "type": "string"
+            }
+          },
+          "required": [
+            "product_name"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "messages": [
+        {
+          "type": "request-start",
+          "blocking": false
+        }
+      ],
+      "orgId": "18c11717-f8ed-4718-a927-cc0be031d0ab",
+      "server": {
+        "url": "https://vapi-agent.legacywineandliquor.workers.dev",
+        "timeoutSeconds": 20
+      },
+      "variableExtractionPlan": {
+        "schema": {
+          "type": "object",
+          "required": [],
+          "properties": {}
+        }
+      }
+    },
+    {
+      "id": "f4a7bede-5161-48d3-88fb-878a87543d4e",
+      "createdAt": "2026-04-06T20:21:30.727Z",
+      "updatedAt": "2026-04-06T20:21:30.727Z",
+      "type": "function",
+      "function": {
+        "name": "log_caller",
+        "description": "Log caller information when they want a callback, provide contact details, or ask about products",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "description": "Why they called - what product they asked about, complaint, callback request, etc.",
+              "type": "string"
+            },
+            "caller_name": {
+              "description": "The caller's name",
+              "type": "string"
+            },
+            "phone_number": {
+              "description": "The caller's phone number",
+              "type": "string"
+            },
+            "callback_requested": {
+              "description": "Whether they want Jay to call them back - true or false",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reason"
+          ]
+        }
+      },
+      "orgId": "18c11717-f8ed-4718-a927-cc0be031d0ab",
+      "server": {
+        "url": "https://vapi-agent.legacywineandliquor.workers.dev"
+      }
+    },
+    {
+      "id": "66416617-815d-4186-afa0-9e5d9cb58413",
+      "createdAt": "2026-04-06T20:21:31.682Z",
+      "updatedAt": "2026-04-06T20:21:31.682Z",
+      "type": "function",
+      "function": {
+        "name": "add_to_waitlist",
+        "description": "Add caller to notification list for out-of-stock items so they are the first to know when it comes back in",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "description": "The caller's name",
+              "type": "string"
+            },
+            "phone": {
+              "description": "The caller's phone number",
+              "type": "string"
+            },
+            "product_name": {
+              "description": "The product they want to be notified about",
+              "type": "string"
+            }
+          },
+          "required": [
+            "product_name"
+          ]
+        }
+      },
+      "orgId": "18c11717-f8ed-4718-a927-cc0be031d0ab",
+      "server": {
+        "url": "https://vapi-agent.legacywineandliquor.workers.dev"
+      }
+    },
+    {
+      "id": "b71f4298-d9ba-45ab-891b-de9316f4a0a9",
+      "createdAt": "2026-04-06T20:21:32.501Z",
+      "updatedAt": "2026-04-06T20:21:32.501Z",
+      "type": "transferCall",
+      "function": {
+        "name": "transfer_to_jay",
+        "description": "Transfer the call to Jay, the store owner, for complaints, large orders, allocated bottles, or wholesale inquiries"
+      },
+      "orgId": "18c11717-f8ed-4718-a927-cc0be031d0ab",
+      "destinations": [
+        {
+          "type": "number",
+          "number": "+14078787003",
+          "description": "Jay - Store Owner"
+        }
+      ]
+    }
+  ]
+}
