@@ -1,0 +1,13 @@
+{
+  "name": "vapi-agent",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Legacy Wine & Liquor — Vapi Voice Agent Backend",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

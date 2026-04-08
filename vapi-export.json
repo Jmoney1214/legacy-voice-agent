@@ -4,12 +4,14 @@
     "orgId": "18c11717-f8ed-4718-a927-cc0be031d0ab",
     "name": "Riley",
     "voice": {
-      "model": "eleven_turbo_v2_5",
+      "model": "eleven_flash_v2_5",
       "speed": 0.95,
       "voiceId": "pFZP5JQG7iQjIQuC4Bku",
       "provider": "11labs",
       "stability": 0.5,
-      "similarityBoost": 0.75
+      "similarityBoost": 0.75,
+      "optimizeStreamingLatency": 3,
+      "useSpeakerBoost": true
     },
     "createdAt": "2026-04-05T18:56:47.025Z",
     "updatedAt": "2026-04-07T01:15:40.653Z",
@@ -178,7 +180,7 @@
             },
             "callback_requested": {
               "description": "Whether they want Jay to call them back - true or false",
-              "type": "string"
+              "type": "boolean"
             }
           },
           "required": [
