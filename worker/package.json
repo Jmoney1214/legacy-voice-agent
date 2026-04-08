@@ -1,6 +1,7 @@
 {
   "name": "vapi-agent",
   "version": "2.0.0",
+  "type": "module",
   "private": true,
   "description": "Legacy Wine & Liquor — Vapi Voice Agent Backend",
   "scripts": {
