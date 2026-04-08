@@ -2,5 +2,6 @@ node_modules/
 .wrangler/
 .dev.vars
 credentials.md
+.mcp.json
 .DS_Store
 *.log
