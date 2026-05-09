@@ -18,7 +18,7 @@ AI phone agent for Legacy Wine & Liquor (Sanford, FL) that handles inbound calls
 Caller dials +1 (407) 250-7267
     |
     v
-Vapi (Riley) — Deepgram Nova-3 STT, GPT-4o-mini, ElevenLabs Chris TTS
+Vapi (Riley) — Deepgram Nova-3 STT, GPT-4o-mini, ElevenLabs Lily TTS
     |
     v  (function calls)
 Cloudflare Worker — vapi-agent.legacywineandliquor.workers.dev
@@ -49,7 +49,7 @@ n8n Workflow
 | Setting | Value |
 |---------|-------|
 | Model | GPT-4o-mini (OpenAI) |
-| Voice | ElevenLabs Chris (charming, down-to-earth) |
+| Voice | ElevenLabs Lily (eleven_turbo_v2_5, speed 0.95, British female) |
 | Transcriber | Deepgram Nova-3 |
 | First Message | "Thanks for calling Legacy Wine and Liquor. How can I help you today?" |
 | Max Duration | 600 seconds (10 min) |
@@ -141,10 +141,9 @@ wrangler deploy
 ```
 
 Secrets (set via `wrangler secret put`):
-- `SUPABASE_ANON_KEY`
-- `LIGHTSPEED_CLIENT_ID` (backup, not used in current Supabase flow)
-- `LIGHTSPEED_CLIENT_SECRET`
-- `LIGHTSPEED_REFRESH_TOKEN`
+- `SUPABASE_ANON_KEY` — required
+- `VAPI_WEBHOOK_SECRET` — required; must match Vapi `server.secret`. Worker rejects requests with mismatched `x-vapi-secret` header.
+- `N8N_WEBHOOK_URL` — optional; end-of-call report is forwarded here when set
 
 ### Vapi
 Configured via Vapi MCP or dashboard.vapi.ai. Assistant ID: `804091b2-a558-49cf-b1f8-d534cc52f26a`
