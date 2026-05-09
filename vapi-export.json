@@ -4,12 +4,14 @@
     "orgId": "18c11717-f8ed-4718-a927-cc0be031d0ab",
     "name": "Riley",
     "voice": {
-      "model": "eleven_turbo_v2_5",
+      "model": "eleven_flash_v2_5",
       "speed": 0.95,
       "voiceId": "pFZP5JQG7iQjIQuC4Bku",
       "provider": "11labs",
       "stability": 0.5,
-      "similarityBoost": 0.75
+      "similarityBoost": 0.75,
+      "useSpeakerBoost": true,
+      "optimizeStreamingLatency": 3
     },
     "createdAt": "2026-04-05T18:56:47.025Z",
     "updatedAt": "2026-04-07T01:15:40.653Z",
@@ -80,10 +82,76 @@
     "maxDurationSeconds": 600,
     "backgroundSound": "off",
     "firstMessageMode": "assistant-speaks-first",
-    "backgroundDenoisingEnabled": false,
+    "backgroundDenoisingEnabled": true,
+    "modelOutputInMessagesEnabled": true,
     "startSpeakingPlan": {
       "waitSeconds": 0.4,
-      "smartEndpointingEnabled": "livekit"
+      "smartEndpointingPlan": {
+        "provider": "livekit"
+      }
+    },
+    "stopSpeakingPlan": {
+      "numWords": 2,
+      "voiceSeconds": 0.3,
+      "backoffSeconds": 1.5
+    },
+    "voicemailDetection": {
+      "provider": "vapi",
+      "backoffPlan": {
+        "startAtSeconds": 5,
+        "frequencySeconds": 5,
+        "maxRetries": 3
+      }
+    },
+    "analysisPlan": {
+      "summaryPlan": {
+        "enabled": true,
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are summarizing an inbound call to Legacy Wine & Liquor in Sanford, Florida. The caller spoke with Lily (the AI voice concierge). Produce a tight two-paragraph summary covering: (1) who called and why, what specific products or topics came up, and what the caller said; (2) what the agent did (inventory lookups, transfers, waitlist add, callback request) and any open follow-ups (callback owed, restock notification owed, transfer to Jay completed). No filler. No 'the caller said'. Direct prose."
+          },
+          { "role": "user", "content": "Here is the transcript:\n\n{{transcript}}" }
+        ],
+        "timeoutSeconds": 5
+      },
+      "structuredDataPlan": {
+        "enabled": true,
+        "schema": {
+          "type": "object",
+          "properties": {
+            "caller_name": { "type": "string", "description": "Caller's first name (or full name) if shared." },
+            "products_discussed": { "type": "array", "items": { "type": "string" }, "description": "All product names mentioned, normalized." },
+            "products_in_stock": { "type": "array", "items": { "type": "string" } },
+            "products_out_of_stock": { "type": "array", "items": { "type": "string" } },
+            "callback_requested": { "type": "boolean" },
+            "transfer_requested": { "type": "boolean" },
+            "transfer_completed": { "type": "boolean" },
+            "transfer_reason": { "type": "string" },
+            "waitlist_added": { "type": "boolean", "description": "True if add_to_waitlist tool was called and confirmed." },
+            "high_value_lead": { "type": "boolean", "description": "True for: large order >$500, allocated bottle interest (Pappy/Blanton's/1942), wholesale, premium tasting, repeat VIP." },
+            "estimated_order_value_usd": { "type": "number" },
+            "sentiment": { "type": "string", "enum": ["positive", "neutral", "negative", "frustrated"] },
+            "caller_psychology": { "type": "string", "enum": ["rushed", "confused", "skeptical", "premium", "angry", "ready_to_buy", "browsing", "unknown"] },
+            "lead_signal": { "type": "string", "enum": ["large_order", "allocated_request", "complaint", "wholesale", "tasting_event", "vip", "none"] },
+            "next_action": { "type": "string", "enum": ["sms_link", "sms_waitlist_confirm", "follow_up_email", "no_action"] }
+          },
+          "required": ["products_discussed", "callback_requested", "sentiment", "next_action"]
+        },
+        "timeoutSeconds": 5
+      },
+      "successEvaluationPlan": {
+        "enabled": true,
+        "rubric": "Checklist",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Score this call against the Legacy Wine & Liquor concierge checklist. For each item, mark Yes/No/Not applicable.\n\n1. Used check_inventory tool when caller asked about a product.\n2. Stayed on topic (wine, spirits, store services only — redirected off-topic asks).\n3. Did not invent prices or claim items in stock without tool confirmation.\n4. Captured caller name and phone when they wanted a callback or waitlist.\n5. Used transfer_to_jay only for owner requests, complaints, large orders, allocated, or wholesale.\n6. Ended call gracefully with the closing line.\n7. Matched caller energy (rushed/confused/skeptical/premium/angry handled appropriately)."
+          },
+          { "role": "user", "content": "Transcript:\n\n{{transcript}}" }
+        ],
+        "timeoutSeconds": 5
+      }
     },
     "server": {
       "url": "https://vapi-agent.legacywineandliquor.workers.dev",
@@ -137,7 +205,25 @@
       "messages": [
         {
           "type": "request-start",
-          "blocking": false
+          "blocking": false,
+          "contents": [
+            { "type": "text", "text": "Let me check that for you." },
+            { "type": "text", "text": "One sec, pulling that up." },
+            { "type": "text", "text": "Checking the back room." }
+          ]
+        },
+        {
+          "type": "request-failed",
+          "contents": [
+            { "type": "text", "text": "Looks like I'm having trouble pulling that up. Can I get your name and number and have someone call you right back?" }
+          ]
+        },
+        {
+          "type": "request-response-delayed",
+          "timingMilliseconds": 2000,
+          "contents": [
+            { "type": "text", "text": "Still pulling that up — one more second." }
+          ]
         }
       ],
       "orgId": "18c11717-f8ed-4718-a927-cc0be031d0ab",

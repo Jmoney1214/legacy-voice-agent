@@ -1,6 +1,7 @@
-# Riley — Legacy Wine & Liquor Voice Agent
-# WORKING SNAPSHOT — April 6, 2026
-# This agent can look up real-time inventory from 16,797 products
+# Lily — Legacy Wine & Liquor Voice Agent
+# WORKING SNAPSHOT — May 9, 2026 (Phase 1.5: hardened + Tier-2)
+# Real-time inventory across 16,797 products w/ semantic search,
+# personalized greetings, structured post-call analysis, SMS follow-ups.
 
 ## Status: LIVE AND WORKING
 
@@ -13,8 +14,9 @@ Phone Number ID: c062ff21-217e-46e0-be20-a9a257433b45
 | Component | Provider | Model/ID | Settings |
 |-----------|----------|----------|----------|
 | LLM | OpenAI | gpt-4o-mini | temp 0.7, max 250 tokens |
-| Voice | ElevenLabs | Lily (pFZP5JQG7iQjIQuC4Bku) | eleven_turbo_v2_5, speed 0.95, stability 0.5 |
+| Voice | ElevenLabs | Lily (pFZP5JQG7iQjIQuC4Bku) | **eleven_flash_v2_5** (~75 ms TTFB), speed 0.95, stability 0.5, speaker boost, optimizeStreamingLatency 3 |
 | Transcriber | Deepgram | nova-3 | English |
+| Embeddings | Cloudflare Workers AI | bge-base-en-v1.5 | 768-dim, used for inventory semantic search |
 
 ## Voice Details
 - **Name:** Lily — "Velvety Actress"
@@ -117,12 +119,17 @@ $$;
 
 ## Critical Implementation Notes
 
-1. **Vapi sends `tool-calls` not `function-call`** when tools are in `model.toolIds`. Worker handles BOTH formats.
+1. **Vapi sends `tool-calls` not `function-call`** when tools are in `model.toolIds`. Worker handles BOTH formats; tool-calls are wrapped per-call in try/catch so a malformed `arguments` JSON only drops one entry.
 2. **Phone number `server.url`** was previously overriding assistant with a stale Supabase Edge Function. Must point to Cloudflare Worker.
 3. **ElevenLabs requires Creator plan** — free plan blocks Vapi integration.
 4. **Lightspeed API is too slow for voice** (30+ seconds paginating). Use Supabase inventory instead.
 5. **`model` object in Vapi PATCH requests** can wipe toolIds and messages if not included. Always send complete model object.
-6. **eleven_multilingual_v2** is highest quality but slower. **eleven_turbo_v2_5** is best for real-time voice.
+6. **eleven_flash_v2_5** is the right model for realtime — same voice quality as turbo_v2_5 with ~75 ms TTFB. **eleven_v3 is NOT for realtime** (higher latency, character cap).
+7. **Webhook auth**: worker checks `x-vapi-secret` against `VAPI_WEBHOOK_SECRET`. Vapi sends this when assistant `server.secret` is set. If the env var is unset, the worker is OPEN — set both before deploying publicly.
+8. **Personalized greeting**: requires the phone number's `assistantId` to be unset so Vapi posts `assistant-request` to the worker. With it set, the worker's personalization is bypassed.
+9. **Idempotent end-of-call**: partial UNIQUE on `call_logs.vapi_call_id` lets the worker upsert via PostgREST `on_conflict=vapi_call_id&Prefer: resolution=merge-duplicates`. Drop the matching n8n insert step.
+10. **Semantic search degrades gracefully**: if `AI` binding or pgvector RPC are missing, `check_inventory` falls through to `search_inventory` RPC, then ILIKE.
+11. **Twilio SMS** is gated on `TWILIO_*` secrets being set AND `structuredData.next_action` being `sms_link` or `sms_waitlist_confirm`. Suppression list (`sms_opt_outs`) honored.
 
 ## Files
 

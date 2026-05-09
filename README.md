@@ -18,21 +18,38 @@ AI phone agent for Legacy Wine & Liquor (Sanford, FL) that handles inbound calls
 Caller dials +1 (407) 250-7267
     |
     v
-Vapi (Riley) — Deepgram Nova-3 STT, GPT-4o-mini, ElevenLabs Lily TTS
+Vapi (Lily) — Deepgram Nova-3 STT, GPT-4o-mini, ElevenLabs flash_v2_5 TTS
+   + voicemail detection, smart endpointing, background denoising,
+     analysisPlan (summary + structuredData + Checklist success rubric)
     |
-    v  (function calls)
+    |-- assistant-request (per call ring) --\
+    |                                        |
+    |                                        v
+    |                              Cloudflare Worker — assistant-request handler
+    |                              ↳ lookup customer by phone
+    |                              ↳ return assistantOverrides w/ personalized firstMessage
+    |                                        |
+    |<---------------------------------------/
+    |
+    v  (tool-calls)
 Cloudflare Worker — vapi-agent.legacywineandliquor.workers.dev
+   + x-vapi-secret auth, 4s fetch timeouts, KV cache, Workers AI embeddings
     |
-    |-- check_inventory --> Supabase (16,797 items, instant lookup)
-    |-- log_caller -------> Supabase call_logs table
-    |-- add_to_waitlist --> Supabase restock_interest table
-    |-- end-of-call ------> Supabase + n8n webhook
+    |-- check_inventory --> KV cache → pgvector (Workers AI bge-base-en-v1.5)
+    |                       → search_inventory RPC → ILIKE fallback
+    |                       (filler audio: "Let me check that for you.")
+    |-- log_caller -------> Supabase call_logs (mid-call)
+    |-- add_to_waitlist --> Supabase restock_interest
+    |-- end-of-call ------> idempotent upsert (vapi_call_id) →
+    |                       customer upsert →
+    |                       Twilio SMS follow-up (driven by structuredData.next_action) →
+    |                       n8n forward (optional, env-gated)
     |
-    v  (post-call automation)
+    v  (post-call automation, optional)
 n8n Workflow
-    |-- Log to Supabase call_logs
     |-- Slack notification (#instagram-content)
     |-- Conditional restock interest tracking
+    |   (call_logs insert step now redundant — worker writes idempotently)
 ```
 
 ## Tools
@@ -48,25 +65,29 @@ n8n Workflow
 
 | Setting | Value |
 |---------|-------|
-| Model | GPT-4o-mini (OpenAI) |
-| Voice | ElevenLabs Lily (eleven_turbo_v2_5, speed 0.95, British female) |
+| Model | GPT-4o-mini (OpenAI), temp 0.7, max 250 tokens |
+| Voice | ElevenLabs Lily (`eleven_flash_v2_5`, speed 0.95, speaker boost on, optimizeStreamingLatency 3) |
 | Transcriber | Deepgram Nova-3 |
-| First Message | "Thanks for calling Legacy Wine and Liquor. How can I help you today?" |
+| First Message | Dynamic — personalized via `assistant-request` webhook for returning callers |
 | Max Duration | 600 seconds (10 min) |
 | Silence Timeout | 30 seconds |
-| Max Tokens | 250 |
-| Temperature | 0.7 |
+| Voicemail Detection | Vapi (5s start, 5s frequency, 3 retries) |
+| Background Denoising | Enabled |
+| Smart Endpointing | LiveKit |
+| Stop Speaking | numWords 2, voiceSeconds 0.3, backoffSeconds 1.5 |
 | End Call Phrases | "goodbye", "that's all", "have a good one", "thanks bye", "talk to you soon" |
 | End Call Message | "Thanks for calling Legacy. We appreciate you." |
+| Analysis | summary + structuredData (12 fields) + Checklist success rubric |
 
 ## Supabase Tables
 
 | Table | Purpose |
 |-------|---------|
-| `inventory` | 16,797 products synced from Lightspeed POS (description, price, qoh, category) |
-| `customers` | 293 customers with RFM scoring, product interests, source tracking |
-| `call_logs` | Every call logged with phone, duration, transcript, summary, cost, recording URL |
+| `inventory` | 16,797 products synced from Lightspeed POS (description, price, qoh, category, **embedding vector(768)**) |
+| `customers` | 293+ customers with RFM scoring, product interests, source tracking, `last_call_at`, `call_count`, `last_products_discussed` |
+| `call_logs` | Every call logged with phone, duration, transcript, summary, cost, recording URL, **structured_data (jsonb), sentiment, lead_signal, success_score** |
 | `restock_interest` | Waitlist entries — phone, name, product requested, notified status |
+| `sms_opt_outs` | DNC list — Twilio SMS follow-ups skip these phone numbers |
 
 ## Project Structure
 
@@ -120,8 +141,22 @@ legacy-voice-agent/
 - [x] n8n post-call automation (Supabase + Slack)
 - [x] Caller psychology adaptation in system prompt
 - [x] Advanced settings (silence timeout, max duration, max tokens)
-- [ ] SMS follow-ups via Twilio
-- [ ] notify_manager Slack alerts for high-value leads
+
+### Phase 1.5 — Hardening + Tier-2 capability (CURRENT)
+- [x] Webhook auth (`x-vapi-secret` → `VAPI_WEBHOOK_SECRET`)
+- [x] Per-tool-call try/catch, fetch timeouts, idempotent call_logs
+- [x] ElevenLabs `eleven_flash_v2_5` (~75 ms latency vs ~250 ms turbo)
+- [x] Tool `messages.request-start/failed/response-delayed` filler audio
+- [x] Vapi `analysisPlan` — summary + structuredData + Checklist success rubric
+- [x] Vapi voicemail detection
+- [x] Background denoising + tuned `startSpeakingPlan`/`stopSpeakingPlan`
+- [x] Personalized greeting per caller via `assistant-request` webhook
+- [x] Cloudflare KV cache for hot inventory queries
+- [x] pgvector semantic inventory search via Workers AI embeddings
+- [x] Twilio SMS follow-ups driven by `structuredData.next_action`
+- [x] SMS opt-out suppression (`sms_opt_outs` table)
+- [ ] notify_manager Slack alerts for high-value leads (separate from n8n)
+- [ ] Lightspeed → Supabase nightly inventory sync (Cron Worker)
 
 ### Phase 2 — OpenAI Realtime Multi-Agent System (FUTURE)
 - [ ] 6 specialized agents: Triage, Product Specialist, Order Support, Retention, VIP, Compliance
@@ -134,19 +169,58 @@ legacy-voice-agent/
 
 ## Deployment
 
-### Cloudflare Worker
+### 1. Apply the SQL migration
+
+Run `worker/migrations/001_inventory_pgvector.sql` in the Supabase SQL editor. Sets up:
+- `vector` extension + `inventory.embedding` column + HNSW index + `search_inventory_semantic()` RPC
+- Partial UNIQUE index on `call_logs.vapi_call_id` (idempotent end-of-call writes)
+- UNIQUE index on `customers.phone` + history columns
+- `sms_opt_outs` table
+
+### 2. Cloudflare Worker
+
 ```bash
 cd worker
+# One-time: create the KV namespace and paste the id into wrangler.toml
+wrangler kv namespace create INVENTORY_CACHE
 wrangler deploy
 ```
 
-Secrets (set via `wrangler secret put`):
-- `SUPABASE_ANON_KEY` — required
-- `VAPI_WEBHOOK_SECRET` — required; must match Vapi `server.secret`. Worker rejects requests with mismatched `x-vapi-secret` header.
-- `N8N_WEBHOOK_URL` — optional; end-of-call report is forwarded here when set
+Secrets (`wrangler secret put <NAME>`):
 
-### Vapi
-Configured via Vapi MCP or dashboard.vapi.ai. Assistant ID: `804091b2-a558-49cf-b1f8-d534cc52f26a`
+| Secret | Purpose |
+|--------|---------|
+| `SUPABASE_ANON_KEY` | PostgREST + RPC auth (required) |
+| `VAPI_WEBHOOK_SECRET` | Must match Vapi `server.secret`. Worker rejects mismatched `x-vapi-secret`. (required) |
+| `TWILIO_ACCOUNT_SID` | SMS follow-ups (required if SMS enabled) |
+| `TWILIO_AUTH_TOKEN` | SMS follow-ups |
+| `TWILIO_FROM` | E.164 sender number (e.g. `+14072507267`) |
+| `N8N_WEBHOOK_URL` | Optional end-of-call forward |
+
+`wrangler.toml` also binds Workers AI (`AI`, free) and KV (`INVENTORY_CACHE`).
+
+### 3. Backfill inventory embeddings (one-time)
+
+```bash
+SUPABASE_URL=https://...supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=eyJ... \
+CF_ACCOUNT_ID=... \
+CF_AI_TOKEN=... \
+node scripts/embed-inventory.mjs --batch 50
+```
+
+Re-runnable. Only fills rows with `embedding IS NULL`. ~16,797 items, batched 50 at a time.
+
+### 4. Push Vapi config
+
+```bash
+VAPI_API_KEY=vapi_... ./scripts/deploy-vapi.sh
+```
+
+Pushes the assistant config + the `check_inventory` tool messages from `vapi-export.json` (voice → `eleven_flash_v2_5`, voicemail detection, `analysisPlan` for summary/structured data/success rubric, denoising on, smart endpointing, request-start/failed/delayed filler audio).
+
+Set Vapi → assistant settings → server → secret to the same value as `VAPI_WEBHOOK_SECRET`. Set the phone number's `assistantId` to **null** so Vapi calls the worker's `assistant-request` endpoint and gets per-caller personalization. (To disable that, leave the assistant ID set.)
 
 ### n8n
-Workflow ID: `thZVbwBdNQdfNyXN` on `legacywineandliquor.app.n8n.cloud`
+
+Workflow ID: `thZVbwBdNQdfNyXN` on `legacywineandliquor.app.n8n.cloud`. With the Cloudflare Worker now writing `call_logs` idempotently keyed on `vapi_call_id`, the n8n workflow's `call_logs` insert step can be removed (or it'll silently be merged into the same row).
