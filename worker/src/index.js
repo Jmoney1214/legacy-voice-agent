@@ -160,7 +160,9 @@ async function routeFunctionCall(name, params, message, env) {
 }
 
 // ===========================================================================
-// check_inventory: search_inventory RPC (pg_trgm + tsvector) → ILIKE fallback
+// check_inventory: search_inventory RPC (pg_trgm + tsvector)
+//                  -> embed-query Edge Function (concept search)
+//                  -> ILIKE fallback
 // ===========================================================================
 
 async function handleCheckInventory(params, env) {
@@ -171,9 +173,16 @@ async function handleCheckInventory(params, env) {
     });
   }
 
-  // Single Postgres call: pg_trgm + tsvector match in search_inventory RPC.
-  // Fall back to ILIKE if the RPC is missing or returns nothing.
+  // 1. Lexical: pg_trgm + tsvector. Fast, free, handles SKU/typo queries.
   let items = await rpcSearch(product, env);
+
+  // 2. Concept-level fallback when lexical produces nothing — e.g.
+  //    "something smooth and sweet" -> cream liqueurs.
+  if (!items?.length) {
+    items = await semanticSearch(product, env);
+  }
+
+  // 3. Last-ditch ILIKE so we don't go silent if both RPCs are missing.
   if (!items?.length) {
     const keywords = product.replace(/[^a-zA-Z0-9\s]/g, "").trim().split(/\s+/).filter((w) => w.length > 1);
     items = await ilikeSearch(keywords, env);
@@ -185,6 +194,27 @@ async function handleCheckInventory(params, env) {
   }
 
   return Response.json({ results: [{ result: formatInventoryResponse(items) }] });
+}
+
+async function semanticSearch(query, env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) return null;
+  try {
+    const res = await timedFetch(`${env.SUPABASE_URL}/functions/v1/embed-query`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.SUPABASE_ANON_KEY}`,
+        apikey: env.SUPABASE_ANON_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ query, match_count: 5, min_similarity: 0.4 }),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return Array.isArray(json?.matches) ? json.matches : null;
+  } catch (err) {
+    console.error("semanticSearch failed:", err.message);
+    return null;
+  }
 }
 
 async function rpcSearch(searchQuery, env) {

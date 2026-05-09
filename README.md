@@ -35,8 +35,11 @@ Vapi (Lily) — Deepgram Nova-3 STT, GPT-4o-mini, ElevenLabs flash_v2_5 TTS
 Cloudflare Worker — vapi-agent.legacywineandliquor.workers.dev
    + x-vapi-secret auth, 4s fetch timeouts. Stateless: all data lives in Supabase.
     |
-    |-- check_inventory --> Supabase search_inventory RPC
-    |                       (pg_trgm fuzzy + tsvector word match) → ILIKE fallback
+    |-- check_inventory --> 1) Supabase search_inventory RPC
+    |                          (pg_trgm fuzzy + tsvector word match)
+    |                       2) embed-query Edge Function (concept search:
+    |                          OpenAI text-embedding-3-small @ 768d → pgvector)
+    |                       3) ILIKE fallback
     |                       (filler audio: "Let me check that for you.")
     |-- log_caller -------> Supabase call_logs (mid-call)
     |-- add_to_waitlist --> Supabase restock_interest
@@ -83,7 +86,7 @@ n8n Workflow
 
 | Table | Purpose |
 |-------|---------|
-| `inventory` | 16,797 products synced from Lightspeed POS (description, price, qoh, category). Trigram + FTS GIN-indexed for fuzzy search. |
+| `inventory` | 16,797 products synced from Lightspeed POS (description, price, qoh, category, **embedding vector(768)**). Trigram + FTS GIN-indexed for fuzzy search; HNSW-indexed for semantic search. |
 | `customers` | 293+ customers with RFM scoring, product interests, source tracking, `last_call_at`, `call_count`, `last_products_discussed` |
 | `call_logs` | Every call logged with phone, duration, transcript, summary, cost, recording URL, **structured_data (jsonb), sentiment, lead_signal, success_score** |
 | `restock_interest` | Waitlist entries — phone, name, product requested, notified status |
@@ -151,7 +154,8 @@ legacy-voice-agent/
 - [x] Vapi voicemail detection
 - [x] Background denoising + tuned `startSpeakingPlan`/`stopSpeakingPlan`
 - [x] Personalized greeting per caller via `assistant-request` webhook
-- [x] Smarter inventory matching: pg_trgm + tsvector in `search_inventory` RPC (typo and word-order tolerant; pure Postgres, no external embedding service)
+- [x] Smarter inventory matching: pg_trgm + tsvector in `search_inventory` RPC (typo and word-order tolerant)
+- [x] Concept-level fallback: OpenAI text-embedding-3-small (768d) via Supabase Edge Function `embed-query` → `search_inventory_semantic` RPC (handles "something smooth and sweet")
 - [x] Twilio SMS follow-ups driven by `structuredData.next_action`
 - [x] SMS opt-out suppression (`sms_opt_outs` table)
 - [ ] notify_manager Slack alerts for high-value leads (separate from n8n)
@@ -168,17 +172,39 @@ legacy-voice-agent/
 
 ## Deployment
 
-### 1. Apply the SQL migration
+### 1. Apply the SQL migrations
 
-Run `worker/migrations/001_inventory_search.sql` in the Supabase SQL editor. Sets up:
-- `pg_trgm` + `unaccent` extensions, trigram + FTS GIN indexes on `inventory.description`
-- Smarter `search_inventory()` RPC (typo-tolerant, word-reorder-tolerant)
-- Partial UNIQUE on `call_logs.vapi_call_id` (idempotent end-of-call writes)
-- `call_logs.structured_data / sentiment / lead_signal / success_score` columns
-- UNIQUE on `customers.phone` + `call_count / last_call_at / last_products_discussed`
-- `sms_opt_outs` table
+In the Supabase SQL editor (or `supabase db push`), run in order:
 
-### 2. Cloudflare Worker
+- `worker/migrations/001_inventory_search.sql` — `pg_trgm` + `unaccent`, trigram + FTS GIN indexes on `inventory.description`, smarter `search_inventory()` RPC, partial UNIQUE on `call_logs.vapi_call_id`, `customers.phone` UNIQUE + history columns, `sms_opt_outs` table.
+- `worker/migrations/002_inventory_semantic.sql` — `vector` extension, `inventory.embedding vector(768)`, HNSW index, `search_inventory_semantic()` RPC.
+
+### 2. Deploy Supabase Edge Functions
+
+```bash
+# JWT-verified runtime function (uses anon key from worker)
+supabase functions deploy embed-query
+
+# Public-but-secret-gated backfill (--no-verify-jwt; protected by BACKFILL_SECRET header)
+supabase functions deploy embed-inventory-backfill --no-verify-jwt
+
+supabase secrets set OPENAI_API_KEY=sk-...
+supabase secrets set BACKFILL_SECRET=$(openssl rand -hex 32)
+```
+
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are auto-injected into the function env by Supabase.
+
+### 3. Backfill embeddings (one-time, ~16,797 rows)
+
+```bash
+SUPABASE_URL=https://<ref>.supabase.co \
+BACKFILL_SECRET=<the-value-you-set> \
+./scripts/backfill-embeddings.sh
+```
+
+Loops the `embed-inventory-backfill` Edge Function in 50-row batches until `remaining=0`. Re-runnable; only fills rows with `embedding IS NULL`. Total OpenAI cost: well under $0.10.
+
+### 4. Cloudflare Worker
 
 ```bash
 cd worker
@@ -189,16 +215,16 @@ Secrets (`wrangler secret put <NAME>`):
 
 | Secret | Purpose |
 |--------|---------|
-| `SUPABASE_ANON_KEY` | PostgREST + RPC auth (required) |
+| `SUPABASE_ANON_KEY` | PostgREST + RPC + Edge Function auth (required) |
 | `VAPI_WEBHOOK_SECRET` | Must match Vapi `server.secret`. Worker rejects mismatched `x-vapi-secret`. (required) |
 | `TWILIO_ACCOUNT_SID` | SMS follow-ups (required if SMS enabled) |
 | `TWILIO_AUTH_TOKEN` | SMS follow-ups |
 | `TWILIO_FROM` | E.164 sender number (e.g. `+14072507267`) |
 | `N8N_WEBHOOK_URL` | Optional end-of-call forward |
 
-The worker is stateless: all caching, search, and history live in Supabase.
+The worker is stateless: search, embeddings, caller history, opt-outs all live in Supabase.
 
-### 3. Push Vapi config
+### 5. Push Vapi config
 
 ```bash
 VAPI_API_KEY=vapi_... ./scripts/deploy-vapi.sh
