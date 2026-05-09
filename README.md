@@ -33,10 +33,10 @@ Vapi (Lily) — Deepgram Nova-3 STT, GPT-4o-mini, ElevenLabs flash_v2_5 TTS
     |
     v  (tool-calls)
 Cloudflare Worker — vapi-agent.legacywineandliquor.workers.dev
-   + x-vapi-secret auth, 4s fetch timeouts, KV cache, Workers AI embeddings
+   + x-vapi-secret auth, 4s fetch timeouts. Stateless: all data lives in Supabase.
     |
-    |-- check_inventory --> KV cache → pgvector (Workers AI bge-base-en-v1.5)
-    |                       → search_inventory RPC → ILIKE fallback
+    |-- check_inventory --> Supabase search_inventory RPC
+    |                       (pg_trgm fuzzy + tsvector word match) → ILIKE fallback
     |                       (filler audio: "Let me check that for you.")
     |-- log_caller -------> Supabase call_logs (mid-call)
     |-- add_to_waitlist --> Supabase restock_interest
@@ -83,7 +83,7 @@ n8n Workflow
 
 | Table | Purpose |
 |-------|---------|
-| `inventory` | 16,797 products synced from Lightspeed POS (description, price, qoh, category, **embedding vector(768)**) |
+| `inventory` | 16,797 products synced from Lightspeed POS (description, price, qoh, category). Trigram + FTS GIN-indexed for fuzzy search. |
 | `customers` | 293+ customers with RFM scoring, product interests, source tracking, `last_call_at`, `call_count`, `last_products_discussed` |
 | `call_logs` | Every call logged with phone, duration, transcript, summary, cost, recording URL, **structured_data (jsonb), sentiment, lead_signal, success_score** |
 | `restock_interest` | Waitlist entries — phone, name, product requested, notified status |
@@ -151,8 +151,7 @@ legacy-voice-agent/
 - [x] Vapi voicemail detection
 - [x] Background denoising + tuned `startSpeakingPlan`/`stopSpeakingPlan`
 - [x] Personalized greeting per caller via `assistant-request` webhook
-- [x] Cloudflare KV cache for hot inventory queries
-- [x] pgvector semantic inventory search via Workers AI embeddings
+- [x] Smarter inventory matching: pg_trgm + tsvector in `search_inventory` RPC (typo and word-order tolerant; pure Postgres, no external embedding service)
 - [x] Twilio SMS follow-ups driven by `structuredData.next_action`
 - [x] SMS opt-out suppression (`sms_opt_outs` table)
 - [ ] notify_manager Slack alerts for high-value leads (separate from n8n)
@@ -171,18 +170,18 @@ legacy-voice-agent/
 
 ### 1. Apply the SQL migration
 
-Run `worker/migrations/001_inventory_pgvector.sql` in the Supabase SQL editor. Sets up:
-- `vector` extension + `inventory.embedding` column + HNSW index + `search_inventory_semantic()` RPC
-- Partial UNIQUE index on `call_logs.vapi_call_id` (idempotent end-of-call writes)
-- UNIQUE index on `customers.phone` + history columns
+Run `worker/migrations/001_inventory_search.sql` in the Supabase SQL editor. Sets up:
+- `pg_trgm` + `unaccent` extensions, trigram + FTS GIN indexes on `inventory.description`
+- Smarter `search_inventory()` RPC (typo-tolerant, word-reorder-tolerant)
+- Partial UNIQUE on `call_logs.vapi_call_id` (idempotent end-of-call writes)
+- `call_logs.structured_data / sentiment / lead_signal / success_score` columns
+- UNIQUE on `customers.phone` + `call_count / last_call_at / last_products_discussed`
 - `sms_opt_outs` table
 
 ### 2. Cloudflare Worker
 
 ```bash
 cd worker
-# One-time: create the KV namespace and paste the id into wrangler.toml
-wrangler kv namespace create INVENTORY_CACHE
 wrangler deploy
 ```
 
@@ -197,21 +196,9 @@ Secrets (`wrangler secret put <NAME>`):
 | `TWILIO_FROM` | E.164 sender number (e.g. `+14072507267`) |
 | `N8N_WEBHOOK_URL` | Optional end-of-call forward |
 
-`wrangler.toml` also binds Workers AI (`AI`, free) and KV (`INVENTORY_CACHE`).
+The worker is stateless: all caching, search, and history live in Supabase.
 
-### 3. Backfill inventory embeddings (one-time)
-
-```bash
-SUPABASE_URL=https://...supabase.co \
-SUPABASE_SERVICE_ROLE_KEY=eyJ... \
-CF_ACCOUNT_ID=... \
-CF_AI_TOKEN=... \
-node scripts/embed-inventory.mjs --batch 50
-```
-
-Re-runnable. Only fills rows with `embedding IS NULL`. ~16,797 items, batched 50 at a time.
-
-### 4. Push Vapi config
+### 3. Push Vapi config
 
 ```bash
 VAPI_API_KEY=vapi_... ./scripts/deploy-vapi.sh

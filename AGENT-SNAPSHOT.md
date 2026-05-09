@@ -16,7 +16,7 @@ Phone Number ID: c062ff21-217e-46e0-be20-a9a257433b45
 | LLM | OpenAI | gpt-4o-mini | temp 0.7, max 250 tokens |
 | Voice | ElevenLabs | Lily (pFZP5JQG7iQjIQuC4Bku) | **eleven_flash_v2_5** (~75 ms TTFB), speed 0.95, stability 0.5, speaker boost, optimizeStreamingLatency 3 |
 | Transcriber | Deepgram | nova-3 | English |
-| Embeddings | Cloudflare Workers AI | bge-base-en-v1.5 | 768-dim, used for inventory semantic search |
+| Inventory matcher | Supabase Postgres | pg_trgm + tsvector | `search_inventory` RPC; trigram + FTS GIN indexes |
 
 ## Voice Details
 - **Name:** Lily — "Velvety Actress"
@@ -128,7 +128,7 @@ $$;
 7. **Webhook auth**: worker checks `x-vapi-secret` against `VAPI_WEBHOOK_SECRET`. Vapi sends this when assistant `server.secret` is set. If the env var is unset, the worker is OPEN — set both before deploying publicly.
 8. **Personalized greeting**: requires the phone number's `assistantId` to be unset so Vapi posts `assistant-request` to the worker. With it set, the worker's personalization is bypassed.
 9. **Idempotent end-of-call**: partial UNIQUE on `call_logs.vapi_call_id` lets the worker upsert via PostgREST `on_conflict=vapi_call_id&Prefer: resolution=merge-duplicates`. Drop the matching n8n insert step.
-10. **Semantic search degrades gracefully**: if `AI` binding or pgvector RPC are missing, `check_inventory` falls through to `search_inventory` RPC, then ILIKE.
+10. **Inventory matching is pure Postgres**: `search_inventory` uses pg_trgm (typo tolerance) + tsvector (word reordering) + unaccent. No external embedding service or KV cache — all state lives in Supabase. Worker falls through to ILIKE if the RPC is missing.
 11. **Twilio SMS** is gated on `TWILIO_*` secrets being set AND `structuredData.next_action` being `sms_link` or `sms_waitlist_confirm`. Suppression list (`sms_opt_outs`) honored.
 
 ## Files

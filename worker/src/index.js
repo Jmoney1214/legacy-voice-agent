@@ -5,15 +5,14 @@
 //   - tool-calls          check_inventory / log_caller / add_to_waitlist
 //   - function-call       legacy single-tool format (kept for compat)
 //   - end-of-call-report  call_logs upsert, customer upsert, SMS follow-up,
-//                         Slack/n8n forward driven by Vapi structuredData
+//                         n8n forward driven by Vapi structuredData
 //
-// Tier-2 path (semantic search + cache) degrades gracefully: if the AI binding,
-// pgvector RPC, KV namespace, or Twilio secrets are missing we fall back to
-// the simpler tier without breaking the call.
+// Single data layer: Supabase. Inventory matching is pure Postgres
+// (pg_trgm + tsvector via the search_inventory RPC); no KV cache, no
+// external embedding service.
 
 const FETCH_TIMEOUT_MS = 4000;
 const FALLBACK_RESULT = "I'm having trouble looking that up right now. Can I have someone call you back?";
-const KV_TTL_SECONDS = 300; // 5-minute hot cache
 
 export default {
   async fetch(request, env) {
@@ -161,7 +160,7 @@ async function routeFunctionCall(name, params, message, env) {
 }
 
 // ===========================================================================
-// check_inventory: KV cache → semantic (Workers AI) → RPC → ILIKE fallback
+// check_inventory: search_inventory RPC (pg_trgm + tsvector) → ILIKE fallback
 // ===========================================================================
 
 async function handleCheckInventory(params, env) {
@@ -172,61 +171,20 @@ async function handleCheckInventory(params, env) {
     });
   }
 
-  const cacheKey = `inv:${product.toLowerCase()}`;
-  if (env.INVENTORY_CACHE) {
-    try {
-      const cached = await env.INVENTORY_CACHE.get(cacheKey, "json");
-      if (cached?.response) {
-        return Response.json({ results: [{ result: cached.response }] });
-      }
-    } catch (err) {
-      console.error("KV read failed:", err.message);
-    }
+  // Single Postgres call: pg_trgm + tsvector match in search_inventory RPC.
+  // Fall back to ILIKE if the RPC is missing or returns nothing.
+  let items = await rpcSearch(product, env);
+  if (!items?.length) {
+    const keywords = product.replace(/[^a-zA-Z0-9\s]/g, "").trim().split(/\s+/).filter((w) => w.length > 1);
+    items = await ilikeSearch(keywords, env);
   }
-
-  const stripped = product.replace(/[^a-zA-Z0-9\s]/g, "").trim();
-  const keywords = stripped.split(/\s+/).filter((w) => w.length > 1);
-  const searchQuery = keywords.join(" ");
-
-  let items = await semanticSearch(product, env);
-  if (!items?.length) items = await rpcSearch(searchQuery, env);
-  if (!items?.length) items = await ilikeSearch(keywords, env);
 
   if (!items?.length) {
     const response = `I don't see ${product} in our current inventory. I can add you to our notification list so you're the first to know when it comes in. Can I get your name and number?`;
     return Response.json({ results: [{ result: response }] });
   }
 
-  const response = formatInventoryResponse(items);
-
-  if (env.INVENTORY_CACHE) {
-    // Best-effort cache; don't block on write.
-    env.INVENTORY_CACHE.put(cacheKey, JSON.stringify({ response }), { expirationTtl: KV_TTL_SECONDS })
-      .catch((err) => console.error("KV write failed:", err.message));
-  }
-
-  return Response.json({ results: [{ result: response }] });
-}
-
-async function semanticSearch(query, env) {
-  if (!env.AI || !env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) return null;
-  try {
-    const embed = await env.AI.run("@cf/baai/bge-base-en-v1.5", { text: query });
-    const vec = embed?.data?.[0];
-    if (!Array.isArray(vec) || vec.length === 0) return null;
-
-    const res = await timedFetch(`${env.SUPABASE_URL}/rest/v1/rpc/search_inventory_semantic`, {
-      method: "POST",
-      headers: { ...supabaseHeaders(env), "Content-Type": "application/json" },
-      body: JSON.stringify({ query_embedding: vec, match_count: 5 }),
-    });
-    if (!res.ok) return null;
-    const rows = await res.json();
-    return Array.isArray(rows) ? rows : null;
-  } catch (err) {
-    console.error("semanticSearch failed:", err.message);
-    return null;
-  }
+  return Response.json({ results: [{ result: formatInventoryResponse(items) }] });
 }
 
 async function rpcSearch(searchQuery, env) {

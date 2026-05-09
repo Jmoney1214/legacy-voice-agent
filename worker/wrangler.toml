@@ -1,25 +1,12 @@
 name = "vapi-agent"
 main = "src/index.js"
 compatibility_date = "2024-09-23"
-compatibility_flags = ["nodejs_compat"]
 
 [vars]
 SUPABASE_URL = "https://rffvoreqcpkqqxwprosg.supabase.co"
 VAPI_ASSISTANT_ID = "804091b2-a558-49cf-b1f8-d534cc52f26a"
 SITE_URL = "https://legacywineandliquor.com"
 SMS_OPT_OUT_FOOTER = "Reply STOP to opt out."
-
-# --- Bindings ---
-# Workers AI for inventory query embeddings (free tier).
-[ai]
-binding = "AI"
-
-# KV cache for hot inventory queries (Pappy, Blanton's, 1942...).
-# Create with: wrangler kv namespace create INVENTORY_CACHE
-# Then paste the id here.
-[[kv_namespaces]]
-binding = "INVENTORY_CACHE"
-id = "REPLACE_WITH_KV_ID"
 
 # --- Secrets (set via `wrangler secret put`) ---
 # SUPABASE_ANON_KEY        — required, PostgREST/RPC auth
