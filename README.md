@@ -132,6 +132,17 @@ legacy-voice-agent/
 - **Website:** legacywineandliquor.com
 - **Owner:** Jay
 
+## Claude Code MCP
+
+`.mcp.json` at the repo root registers the official [ElevenLabs MCP server](https://github.com/elevenlabs/elevenlabs-mcp) so Claude Code sessions on this project can drive ElevenLabs directly (text-to-speech preview, voice search, voice cloning, transcription of call recordings, etc.). Spawned via `uvx elevenlabs-mcp` — no manual install needed.
+
+```bash
+# Set your key in your shell rc, then restart Claude Code
+export ELEVENLABS_API_KEY=sk_...
+```
+
+(The `.mcp.json` references `${ELEVENLABS_API_KEY}`; the key never lands in git.)
+
 ## Phase Roadmap
 
 ### Phase 1 — Vapi Single Agent (CURRENT)
