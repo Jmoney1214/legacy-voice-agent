@@ -1,0 +1,31 @@
+From: Claude <noreply@anthropic.com>
+Subject: [PATCH] fix: add User-Agent header to Lightspeed API calls
+Apply with: cd ~/Projects/legacy-inventory-sync && git apply 01-lightspeed-user-agent.patch
+---
+ src/index.ts | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/src/index.ts b/src/index.ts
+--- a/src/index.ts
++++ b/src/index.ts
+@@ refreshToken
+   const resp = await fetch("https://cloud.merchantos.com/oauth/access_token.php", {
+     method: "POST",
+-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
++    headers: {
++      "Content-Type": "application/x-www-form-urlencoded",
++      "User-Agent": "legacy-inventory-sync/1.1 (+legacywineandliquor.com)",
++      "Accept": "application/json",
++    },
+     body: new URLSearchParams({ /* ... */ }).toString(),
+   });
+@@ fetchAllItems
+   while (url) {
+     const resp = await fetch(url, {
+-      headers: { Authorization: `Bearer ${token}` },
++      headers: {
++        Authorization: `Bearer ${token}`,
++        "User-Agent": "legacy-inventory-sync/1.1 (+legacywineandliquor.com)",
++        "Accept": "application/json",
++      },
+     });
