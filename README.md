@@ -134,14 +134,27 @@ legacy-voice-agent/
 
 ## Claude Code MCP
 
-`.mcp.json` at the repo root registers the official [ElevenLabs MCP server](https://github.com/elevenlabs/elevenlabs-mcp) so Claude Code sessions on this project can drive ElevenLabs directly (text-to-speech preview, voice search, voice cloning, transcription of call recordings, etc.). Spawned via `uvx elevenlabs-mcp` — no manual install needed.
+`.mcp.json` at the repo root registers four official MCP servers so Claude Code sessions on this project can drive the whole stack:
+
+| Server | Package | What you can do from Claude Code |
+|---|---|---|
+| [ElevenLabs](https://github.com/elevenlabs/elevenlabs-mcp) | `uvx elevenlabs-mcp` | Text-to-speech preview, voice search, voice cloning, transcribe recordings, conversational-AI agent management |
+| [Supabase](https://www.npmjs.com/package/@supabase/mcp-server) | `npx -y @supabase/mcp-server` | Query/migrate the `liquorhub` project — list_tables, execute_sql, apply_migration, get_logs, deploy edge functions |
+| [Twilio](https://github.com/twilio-labs/mcp) | `npx -y @twilio-alpha/mcp` | Send test SMS, list call logs, inspect/import phone numbers, fetch message status |
+| [Slack](https://www.npmjs.com/package/@modelcontextprotocol/server-slack) | `npx -y @modelcontextprotocol/server-slack` | Read/post `#voice-agent` summaries, search history, react to threads |
+
+All credentials are referenced via `${ENV_VAR}` in `.mcp.json` — none of them land in git.
 
 ```bash
-# Set your key in your shell rc, then restart Claude Code
+# Set in your shell rc (or ~/.claude/.env), then restart Claude Code
 export ELEVENLABS_API_KEY=sk_...
+export SUPABASE_ACCESS_TOKEN=sbp_...          # from supabase.com/dashboard/account/tokens
+export TWILIO_ACCOUNT_SID=AC...
+export TWILIO_API_KEY=SK...                   # twilio.com/console/runtime/api-keys (not auth token)
+export TWILIO_API_SECRET=...
+export SLACK_BOT_TOKEN=xoxb-...               # from your Slack app's OAuth & Permissions page
+export SLACK_TEAM_ID=T...                     # the T-prefixed workspace id
 ```
-
-(The `.mcp.json` references `${ELEVENLABS_API_KEY}`; the key never lands in git.)
 
 ## Phase Roadmap
 
