@@ -98,6 +98,7 @@ legacy-voice-agent/
 |       |-- vapi_settings_3.md         # Optimized Vapi settings
 |   |-- phase3/                # Core agent workflow (ML tool selection pipeline)
 |       |-- agent_workflow.md          # 8-stage agent pipeline spec
+|       |-- model_scoring.md           # 12-area model scoring framework
 |-- n8n/                       # n8n workflow exports (future)
 ```
 

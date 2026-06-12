@@ -47,7 +47,9 @@ Each candidate is recorded with: repo ID, likes/downloads, last update, license,
 hardware needs, and a one-line fit note.
 
 ### 4. Evaluator Agent — scores options
-Scores every candidate 1–5 on five axes, weighted for a small retail business:
+Model candidates first go through the 12-area [model scoring framework](model_scoring.md)
+(task match, license, files, and custom-code are hard gates). Survivors are scored
+1–5 on five axes, weighted for a small retail business:
 
 | Axis | Weight | What it measures |
 |------|--------|------------------|
