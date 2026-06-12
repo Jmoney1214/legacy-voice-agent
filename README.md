@@ -96,6 +96,8 @@ legacy-voice-agent/
 |       |-- caller_psychology.md       # Behavior detection and response adaptation
 |       |-- system_prompt_vapi_2.md    # Enhanced prompt with real inventory
 |       |-- vapi_settings_3.md         # Optimized Vapi settings
+|   |-- phase3/                # Core agent workflow (ML tool selection pipeline)
+|       |-- agent_workflow.md          # 8-stage agent pipeline spec
 |-- n8n/                       # n8n workflow exports (future)
 ```
 
@@ -131,6 +133,15 @@ legacy-voice-agent/
 - [ ] SMS follow-ups after calls
 - [ ] Outbound callback workflows
 - [ ] Proactive restock notifications
+
+### Phase 3 — Core Agent Workflow (SPEC)
+Standard 8-stage pipeline for evaluating and adopting ML tools for business tasks
+(OCR, transcription, image work, data cleaning) using OpenAI + Hugging Face MCP.
+See `docs/phase3/agent_workflow.md`.
+- [x] Workflow spec: Planner → Research → Evaluator → Builder → Execution → Validator → Report
+- [x] Tool category map with vetted MCP Spaces per business use
+- [ ] First end-to-end run (voicemail transcription pilot)
+- [ ] Reports directory with completed evaluations
 
 ## Deployment
 
