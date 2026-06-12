@@ -1,0 +1,37 @@
+{
+  "repo_id": "openai/whisper-large-v3",
+  "task": "automatic-speech-recognition",
+  "date": "2026-06-12",
+  "scores": {
+    "task_match": 2,
+    "downloads": 2,
+    "likes": 2,
+    "last_updated": 1,
+    "license": 2,
+    "model_card": 2,
+    "files": 2,
+    "pipeline_support": 2,
+    "endpoint_compat": 2,
+    "custom_code": 2,
+    "benchmarks": 1,
+    "hardware_cost": 0
+  },
+  "notes": {
+    "task_match": "pipeline_tag='automatic-speech-recognition' vs requested 'automatic-speech-recognition'",
+    "downloads": "5051277/month",
+    "likes": "5805",
+    "last_updated": "668 days ago",
+    "license": "apache-2.0",
+    "model_card": "20916 chars, limitations documented: True",
+    "files": "weights=True config=True tokenizer/processor=True",
+    "pipeline_support": "library=transformers, tag=automatic-speech-recognition",
+    "endpoint_compat": "heuristic: transformers + safetensors \u2014 verify on deploy",
+    "custom_code": "not required",
+    "benchmarks": "model-index=False, card mentions evals=True",
+    "hardware_cost": "~18.5 GB of weights"
+  },
+  "total": 20,
+  "max": 24,
+  "gates_passed": true,
+  "verdict": "DEPLOYABLE"
+}

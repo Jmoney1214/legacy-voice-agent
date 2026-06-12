@@ -99,6 +99,13 @@ legacy-voice-agent/
 |   |-- phase3/                # Core agent workflow (ML tool selection pipeline)
 |       |-- agent_workflow.md          # 8-stage agent pipeline spec
 |       |-- model_scoring.md           # 12-area model scoring framework
+|-- legacy-ai-agent-system/    # HF agentic system implementation (see its README)
+|   |-- agents/                # One prompt/spec per pipeline agent
+|   |-- skills/                # Reusable procedures (model selection, card audit, ...)
+|   |-- workflows/             # Per-use-case YAML pipelines
+|   |-- scripts/               # search / evaluate / infer / deploy (runnable Python)
+|   |-- evals/                 # Test fixtures, benchmark results, scorecards
+|   |-- configs/               # MCP config + env templates
 |-- n8n/                       # n8n workflow exports (future)
 ```
 
@@ -141,6 +148,8 @@ Standard 8-stage pipeline for evaluating and adopting ML tools for business task
 See `docs/phase3/agent_workflow.md`.
 - [x] Workflow spec: Planner → Research → Evaluator → Builder → Execution → Validator → Report
 - [x] Tool category map with vetted MCP Spaces per business use
+- [x] System scaffold: `legacy-ai-agent-system/` (agents, skills, workflows, scripts, evals, configs)
+- [x] Working scripts: model search + 12-area scoring verified against live HF API
 - [ ] First end-to-end run (voicemail transcription pilot)
 - [ ] Reports directory with completed evaluations
 

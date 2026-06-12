@@ -1,0 +1,24 @@
+# Product photos -> flyer-ready assets
+name: marketing_asset
+business_goal: "Turn raw bottle photos into clean marketing assets (background removed, flyer-ready)"
+category: background_removal
+
+task_spec:
+  task_type: image-segmentation
+  input: "raw product photo (phone camera quality)"
+  output: "transparent-background PNG, optionally composited onto flyer template"
+  constraints: { monthly_cost_usd: 0, max_latency_s: 30, pii: false }
+  success_criteria: "clean edges (no halo/clipped label) on 5 bottle photos, judged visually"
+
+candidates:
+  spaces:
+    - { id: not-lain/background-removal, note: "2856 likes, MCP-enabled, the standard" }
+  models:
+    - { id: briaai/RMBG-2.0, note: "local lane; CHECK LICENSE — bria models are often non-commercial" }
+
+execution:
+  tier: 1
+  fallback_tier: 2
+
+post_validation:
+  integrate: "Canva MCP: place cutouts into flyer template; Slack #instagram-content for approval"

@@ -1,0 +1,29 @@
+# Vendor statements, invoices, receipts, POs — document in, structured rows out
+name: document_extraction
+business_goal: "Read invoices/receipts/vendor statements into structured data (vendor, date, line items, totals)"
+category: document_extraction
+
+task_spec:
+  task_type: image-text-to-text          # VLM-based extraction
+  input: "PDF or photo of invoice/receipt/statement"
+  output: "JSON {vendor, date, line_items[], total} -> Supabase"
+  constraints: { monthly_cost_usd: 10, max_latency_s: 120, pii: true }   # vendor financials
+  success_criteria: "totals exact-match and >= 90% of line items captured on 5 test docs"
+
+privacy_note: >
+  pii: true — vendor financials. Community/hackathon Spaces are DISQUALIFIED.
+  Use official Spaces, an Inference Endpoint, or local execution only.
+
+candidates:
+  spaces:
+    - { id: prithivMLmods/Multimodal-OCR, note: "established author; check privacy gate per-document" }
+    - { id: prithivMLmods/VLM-Parsing, note: "document-parsing specific" }
+  models:
+    - { id: nanonets/Nanonets-OCR2-3B, note: "endpoint lane for sensitive docs; verify license" }
+
+execution:
+  tier: 3                        # endpoint/local because pii: true
+  fallback_tier: 2
+
+post_validation:
+  integrate: "n8n: email attachment -> extract -> Supabase vendor_invoices -> weekly summary"

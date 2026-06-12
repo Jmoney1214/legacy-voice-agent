@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "hf-mcp-server": {
+      "type": "http",
+      "url": "https://huggingface.co/mcp",
+      "headers": {
+        "Authorization": "Bearer ${HF_TOKEN}"
+      }
+    }
+  },
+  "_notes": {
+    "setup": "claude mcp add hf-mcp-server -t http https://huggingface.co/mcp?login  (browser OAuth, run locally)",
+    "tools_enabled": [
+      "hub_repo_search (model + dataset search)",
+      "space_search (Spaces semantic search, mcp:true for callable tools)",
+      "paper_search",
+      "hf_doc_search / hf_doc_fetch",
+      "hub_repo_details",
+      "dynamic_space (invoke MCP-enabled Spaces)",
+      "hf_jobs (enable at hf.co/settings/mcp — requires PRO)"
+    ],
+    "spaces_pinned": "see skills/space_tool_selection.md vetted defaults"
+  }
+}

@@ -4,3 +4,6 @@ node_modules/
 credentials.md
 .DS_Store
 *.log
+
+# agent system secrets
+legacy-ai-agent-system/configs/*.env

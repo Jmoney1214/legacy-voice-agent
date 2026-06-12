@@ -1,0 +1,25 @@
+# Bottle/product recognition — photo in, product identity out
+name: image_classification
+business_goal: "Identify bottles/products from photos (shelf checks, customer texts, intake)"
+category: image_classification
+
+task_spec:
+  task_type: zero-shot-image-classification   # HF pipeline tag
+  input: "JPEG/PNG photo of a bottle or shelf"
+  output: "product name + confidence, matched against Supabase inventory descriptions"
+  constraints: { monthly_cost_usd: 5, max_latency_s: 30, pii: false }
+  success_criteria: ">= 80% top-1 correct on 10 known-bottle photos in evals/test_images/"
+
+candidates:                      # Research stage pre-seed; re-verify before use
+  spaces:
+    - { id: prithivMLmods/SAM3-Demo, note: "promptable segmentation — finds the bottle" }
+    - { id: atalaydenknalbant/DINOv3, note: "classification + similarity" }
+  models:
+    - { id: openai/clip-vit-large-patch14, note: "zero-shot, match photo to inventory text" }
+
+execution:
+  tier: 1                        # MCP Space first
+  fallback_tier: 2               # local CLIP via run_inference.py
+
+post_validation:                 # wired only after PASS
+  integrate: "n8n: photo upload -> classify -> Supabase inventory match -> Slack reply"

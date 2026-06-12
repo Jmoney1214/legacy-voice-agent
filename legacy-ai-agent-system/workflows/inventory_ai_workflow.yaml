@@ -1,0 +1,43 @@
+# Inventory intelligence — voicemails, data cleanup, and knowledge-base search
+# Three sub-tasks that all feed the same Supabase inventory system.
+name: inventory_ai
+business_goal: "Keep inventory data clean, searchable, and fed by every channel (calls, voicemails, POS exports)"
+category: audio_transcription | data_cleaning | embedding_search
+
+subtasks:
+  - name: voicemail_transcription
+    task_spec:
+      task_type: automatic-speech-recognition
+      input: "mp3 voicemails (suppliers, event inquiries) via Twilio"
+      output: "transcript rows in Supabase call_logs"
+      constraints: { monthly_cost_usd: 5, max_latency_s: 60, pii: false }
+      success_criteria: ">= 90% word accuracy on 5 sample voicemails"
+    candidates:
+      spaces: [ { id: hf-audio/whisper-large-v3, note: "official, scored 23/24" } ]
+      models: [ { id: openai/whisper-large-v3-turbo, note: "endpoint/local fallback" } ]
+    execution: { tier: 1, fallback_tier: 3 }
+
+  - name: data_cleaning
+    task_spec:
+      task_type: none                      # no model — local Python
+      input: "Lightspeed CSV exports (junk chars, dupes, price=0 rows)"
+      output: "clean CSV -> Supabase inventory upsert"
+      constraints: { monthly_cost_usd: 0, max_latency_s: 300, pii: false }
+      success_criteria: "0 junk descriptions, 0 dupes, row count reconciles with POS"
+    execution: { tier: 2, note: "pandas script; no Space exists worth using" }
+
+  - name: knowledge_base_search
+    task_spec:
+      task_type: feature-extraction        # embeddings
+      input: "product descriptions + staff notes"
+      output: "semantic search over inventory (pgvector in Supabase rffvoreqcpkqqxwprosg)"
+      constraints: { monthly_cost_usd: 5, max_latency_s: 2, pii: false }
+      success_criteria: "'smoky scotch under $60' returns sensible top-5"
+    candidates:
+      models:
+        - { id: sentence-transformers/all-MiniLM-L6-v2, note: "tiny, CPU-fast, apache-2.0" }
+        - { id: BAAI/bge-small-en-v1.5, note: "stronger retrieval, still CPU-sized" }
+    execution: { tier: 2, fallback_tier: 3, note: "embed locally, store in Supabase pgvector" }
+
+post_validation:
+  integrate: "n8n: voicemail webhook + nightly CSV sync + Worker /search route on pgvector"
