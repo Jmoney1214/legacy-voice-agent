@@ -18,6 +18,24 @@ Symptoms from the production dashboard ("Known issues"):
 
 This repo (`legacy-voice-agent`) was an earlier Vapi-based slice and is **not** the live worker. Don't apply patches here.
 
+## Fastest path: apply-fixes.sh
+
+If you have local clones of both production repos:
+
+```bash
+./docs/incident-fixes/apply-fixes.sh \
+    --inventory-sync   ~/Projects/legacy-inventory-sync \
+    --elevenlabs-agent ~/Projects/legacy-elevenlabs-agent
+```
+
+The script edits files in-place but does NOT commit or push — review with `git diff` first. It's idempotent: re-running on already-fixed checkouts is a no-op.
+
+Phone-helper test (run anywhere, no deps):
+```bash
+node docs/incident-fixes/snippets/02-phone.test.mjs
+# 19 pass, 0 fail
+```
+
 ## Fix order (do in this sequence)
 
 1. **`legacy-inventory-sync` — Lightspeed User-Agent fix** (root cause of #1, cascades to #2)
